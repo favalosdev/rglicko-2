@@ -1,7 +1,6 @@
 #lang racket
 
 (require graph)
-(require "calc.rkt")
 
 (define system%
   (class object%
@@ -12,6 +11,7 @@
     (define tau init-tau)
     (define eps init-eps)
 
+    ; Optimization
     (define expectations (calc-expectations players))
 
     (define/private (get-expectation p1 p2)
@@ -91,5 +91,57 @@
         (update-rating player)))
 
     (super-new)))
+
+(define (calc-expectations players)
+  (define temp (weighted-graph/directed '()))
+  (for ([player players])
+    (define rivals (get-neighbors players player))
+    (for ([rival rivals])
+      ; Only add names to reduce space usage
+      (let ([pname (get-field name player)]
+            [rname (get-field name rival)])
+        (add-directed-edge! temp pname rname (E player rival)))))
+  (temp))
+
+(define (g player)
+  (let ([phi (get-field phi player)])
+    ((/ 1 (sqrt (+ 1 (* 3 (expt (/ phi pi) 2))))))))
+
+(define (exp2 x)
+  (* x x))
+
+;Check
+(define (E p1 p2)
+  (let ([miu1 (get-field miu p1)]
+        [miu2 (get-field miu p2)]
+        [g2 (g p2)])
+    (/ 1 (+ 1 (exp (* (- g2)) (- miu1 miu2))))))
+
+(define (phi-star phi vol-prime)
+  (sqrt (+ (exp2 phi) (exp2 vol-prime))))
+
+(define (phi-prime player vol-prime v)
+  (/ 1 (sqrt (+ (/ 1 (exp2 (phi-star (get-field phi player) vol-prime)) (/ 1 v))))))
+
+(define (miu-prime player phi-prime performance)
+  (+ (get-field miu player) (* (exp2 phi-prime) performance)))
+
+(define (lower-bound f a tau)
+  (define (loop k)
+    (if (< (f (- a (* k tau))) 0)
+        (loop (+ k 1))
+        (- a (* k tau))))
+  (loop 1))
+
+(define (optimal-value f A B eps)
+  (define (loop X Y fX fY)
+    (if (> (abs (- Y X)) eps)
+        (let* ([Z (+ X (/ (* (- X Y) fX) (- fY fX)))]
+               [fZ (f Z)])
+          (if (<= (* fZ fY) 0)
+              (loop Y Z fY fZ)
+              (loop X Z (/ fX 2) fZ)))
+        (exp (/ X 2))))
+  (loop A B (f A) (f B)))
 
 (provide system%)
