@@ -88,7 +88,8 @@
 
     (define/public (run)
       (for ([player players])
-        (update-rating player)))
+        (update-rating player))
+        (players))
 
     (super-new)))
 

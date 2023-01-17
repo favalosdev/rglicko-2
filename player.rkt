@@ -3,22 +3,13 @@
 (define player%
   (class object%
     (init-field
+     [name : String]
      [r : Number]
      [rd : Number]
      [vol : Number])
 
     (field [miu (/ (- r 1500) 173.7178)]
-           [phi (/ rd 173.7178)])
-
-    #|
-    (: calc-miu! (-> Void))
-    (define/public (calc-miu!)
-      (set! miu (/ (- r 1500) 173.7178)))
-
-    (: calc-phi! (-> Void))
-    (define/public (calc-phi!)
-      (set! phi (/ rd 173.7178)))
-    |#
+           [phi (/ rd 173.7178)]) 
 
     (: update-r! (-> Number Void))
     (define/public (update-r! miu-prime)
@@ -29,6 +20,9 @@
     (define/public (update-rd! phi-prime)
       (set! phi phi-prime)
       (set! rd (* 173.7178 phi-prime)))
+
+    (define/public (lst-repr)
+      (list name r rd vol))
 
     (super-new)))
 
