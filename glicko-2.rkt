@@ -32,7 +32,7 @@
 
 ; Research how to do it
 (define (build-results-graph raw-results)
-  (define g (weighted-graph/undirected '()))
+  (define g (weighted-graph/directed '()))
   (for ([raw raw-results])
     (let* ([pname1 (list-ref raw 0)]
            [pname2 (list-ref raw 1)]
