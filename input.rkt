@@ -6,24 +6,24 @@
 (require "glicko-2.rkt")
 
 (define player-csv-reader
-  (make-csv-reader
-   '((separators-chars            #\;)
+  (make-csv-reader-maker
+   '((separator-chars            #\|)
      (strip-leading-whitespace?  . #t)
      (strip-trailing-whitespace? . #t))))
 
 (define results-csv-reader
-  (make-csv-reader
-   '((separator-chars             #\;)
+  (make-csv-reader-maker
+   '((separator-chars             #\|)
      (strip-leading-whitespace?  . #t)
      (strip-trailing-whitespace? . #t))))
 
-(define raw-player-info
-  (csv->list (player-csv-reader (open-input-file "players.csv"))))
+(define raw-players
+  (csv->list (player-csv-reader (open-input-file "data/players.csv"))))
 
 (define raw-results
-  (csv->list (results-csv-reader (open-input-file "results.csv"))))
+  (csv->list (results-csv-reader (open-input-file "data/results.csv"))))
 
-(define updated-players (glicko-2 raw-player-info raw-results))
+(define updated-players (glicko-2 raw-players raw-results 0.5 0.000001))
 
 (for ([player updated-players])
   (display player))

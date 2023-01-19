@@ -4,15 +4,25 @@
 
 (define system%
   (class object%
-    (init init-players init-results init-tau init-eps)
+    (init init-players init-tau init-eps)
 
     (define players init-players)
-    (define results init-results)
     (define tau init-tau)
     (define eps init-eps)
 
     ; Optimization
-    (define expectations (calc-expectations players))
+    (define (calc-expectations)
+      (define temp (weighted-graph/directed '()))
+      (for ([player (get-vertices players)])
+        (let ([rivals (get-neighbors players player)]
+              [pname (get-field name player)])
+          (for ([rival rivals])
+            (let ([rname (get-field name rival)])
+              (add-directed-edge! temp pname rname (E player rival))))))
+      temp)
+
+    ; Optimization
+    (define expectations (calc-expectations))
 
     (define/private (get-expectation p1 p2)
       (let ([name1 (get-field name p1)]
@@ -20,7 +30,7 @@
         (edge-weight expectations name1 name2)))
 
     (define/private (get-score p1 p2)
-      (edge-weight results p1 p2))
+      (edge-weight players p1 p2))
 
     (define/private (diff-outcome player rival)
       (let ([E (get-expectation player rival)]
@@ -42,7 +52,7 @@
       (let* ([taus (exp2 tau)]
              [ex (exp x)]
              [f1 (apply - (list deltas phis v ex))]
-             [f2 (exp2 (apply + (list phis v ex)) x)])
+             [f2 (exp2 (apply + (list phis v ex)))])
         (-
          (/ (* ex f1) (* 2 f2))
          (/ (- x a) taus))))
@@ -61,7 +71,7 @@
       (optimal-value f A B eps))
 
     (define/private (update-rating player)
-      (define rivals (get-neighbors player))
+      (define rivals (get-neighbors players player))
 
       ; Step 3
       (define v (V player rivals))
@@ -84,29 +94,17 @@
       (set-field! vol player volp)
 
       ; Return player class with changed attributes
-      (player))
+      player)
 
     (define/public (run)
-      (for ([player players])
-        (update-rating player))
-        (players))
+      (for/list ([player (get-vertices players)])
+        (update-rating player)))
 
     (super-new)))
 
-(define (calc-expectations players)
-  (define temp (weighted-graph/directed '()))
-  (for ([player players])
-    (define rivals (get-neighbors players player))
-    (for ([rival rivals])
-      ; Only add names to reduce space usage
-      (let ([pname (get-field name player)]
-            [rname (get-field name rival)])
-        (add-directed-edge! temp pname rname (E player rival)))))
-  (temp))
-
 (define (g player)
   (let ([phi (get-field phi player)])
-    ((/ 1 (sqrt (+ 1 (* 3 (expt (/ phi pi) 2))))))))
+    (/ 1 (sqrt (+ 1 (* 3 (expt (/ phi pi) 2)))))))
 
 (define (exp2 x)
   (* x x))
@@ -116,7 +114,7 @@
   (let ([miu1 (get-field miu p1)]
         [miu2 (get-field miu p2)]
         [g2 (g p2)])
-    (/ 1 (+ 1 (exp (* (- g2)) (- miu1 miu2))))))
+    (/ 1 (+ 1 (exp (* (- g2) (- miu1 miu2)))))))
 
 (define (phi-star phi vol-prime)
   (sqrt (+ (exp2 phi) (exp2 vol-prime))))
