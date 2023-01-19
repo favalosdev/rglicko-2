@@ -45,14 +45,14 @@
     (define/private (V player rivals)
       (/ 1 (for/sum ([rival rivals])
              (let ([E (get-expectation player rival)]
-                   [gs (exp2 (g rival))])
+                   [gs (squared (g rival))])
                (* gs (* E (- 1 E)))))))
 
     (define/private (F phis v deltas a x)
-      (let* ([taus (exp2 tau)]
+      (let* ([taus (squared tau)]
              [ex (exp x)]
              [f1 (apply - (list deltas phis v ex))]
-             [f2 (exp2 (apply + (list phis v ex)))])
+             [f2 (squared (apply + (list phis v ex)))])
         (-
          (/ (* ex f1) (* 2 f2))
          (/ (- x a) taus))))
@@ -60,9 +60,9 @@
     (define/private (vol-prime player v delta)
       (define phi (get-field phi player))
       (define vol (get-field vol player))
-      (define phis (exp2 phi))
-      (define deltas (exp2 delta))
-      (define a (log (exp2 vol)))
+      (define phis (squared phi))
+      (define deltas (squared delta))
+      (define a (log (squared vol)))
       (define f (lambda (x) (F phis v deltas a x)))
       (define A a)
       (define B (if (> deltas (+ phis v))
@@ -106,7 +106,7 @@
   (let ([phi (get-field phi player)])
     (/ 1 (sqrt (+ 1 (* 3 (expt (/ phi pi) 2)))))))
 
-(define (exp2 x)
+(define (squared x)
   (* x x))
 
 ;Check
@@ -117,13 +117,13 @@
     (/ 1 (+ 1 (exp (* (- g2) (- miu1 miu2)))))))
 
 (define (phi-star phi vol-prime)
-  (sqrt (+ (exp2 phi) (exp2 vol-prime))))
+  (sqrt (+ (squared phi) (squared vol-prime))))
 
 (define (phi-prime player vol-prime v)
-  (/ 1 (sqrt (+ (/ 1 (exp2 (phi-star (get-field phi player) vol-prime)) (/ 1 v))))))
+  (/ 1 (sqrt (+ (/ 1 (squared (phi-star (get-field phi player) vol-prime)) (/ 1 v))))))
 
 (define (miu-prime player phi-prime performance)
-  (+ (get-field miu player) (* (exp2 phi-prime) performance)))
+  (+ (get-field miu player) (* (squared phi-prime) performance)))
 
 (define (lower-bound f a tau)
   (define (loop k)
