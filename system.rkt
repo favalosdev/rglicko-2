@@ -1,54 +1,33 @@
 #lang racket
 
-(require graph)
+(require graph racket/trace "player.rkt" "scenario.rkt" "stat.rkt")
 
 (define system%
   (class object%
-    (init init-players init-tau init-eps)
+    (init init-scenario init-tau init-eps)
 
-    (define players init-players)
+    (define scenario init-scenario)
     (define tau init-tau)
     (define eps init-eps)
 
-    ; Optimization
-    (define (calc-expectations)
-      (define temp (weighted-graph/directed '()))
-      (for ([player (get-vertices players)])
-        (let ([rivals (get-neighbors players player)]
-              [pname (get-field name player)])
-          (for ([rival rivals])
-            (let ([rname (get-field name rival)])
-              (add-directed-edge! temp pname rname (E player rival))))))
-      temp)
-
-    ; Optimization
-    (define expectations (calc-expectations))
-
-    (define/private (get-expectation p1 p2)
-      (let ([name1 (get-field name p1)]
-            [name2 (get-field name p2)])
-        (edge-weight expectations name1 name2)))
-
-    (define/private (get-score p1 p2)
-      (edge-weight players p1 p2))
-
     (define/private (diff-outcome player rival)
-      (let ([E (get-expectation player rival)]
-            [s (get-score player rival)])
-        (* (g rival) (- s E))))
+      (let ([e (E  player rival)]
+            [s (send scenario get-score player rival)]
+            [g (get-field g rival)])
+        (* g (- s e))))
 
-    (define/private (performance player rivals)
-      (let ([cdiff (lambda (rival) (diff-outcome player rival))])
-        (for/sum ([rival rivals])
-          (cdiff rival))))
+    (define (performance player rivals)
+                  (let ([cdiff (lambda (rival) (diff-outcome player rival))])
+                    (for/sum ([rival rivals])
+                      (cdiff rival))))
 
-    (define/private (V player rivals)
-      (/ 1 (for/sum ([rival rivals])
-             (let ([E (get-expectation player rival)]
-                   [gs (squared (g rival))])
-               (* gs (* E (- 1 E)))))))
+    (define (V player rivals)
+                  (/ 1 (for/sum ([rival rivals])
+                         (let ([e (E player rival)]
+                               [gs (squared (get-field g rival))])
+                           (* gs (* e (- 1 e)))))))
 
-    (define/private (F phis v deltas a x)
+    (define (F phis v deltas a x)
       (let* ([taus (squared tau)]
              [ex (exp x)]
              [f1 (apply - (list deltas phis v ex))]
@@ -57,7 +36,7 @@
          (/ (* ex f1) (* 2 f2))
          (/ (- x a) taus))))
 
-    (define/private (vol-prime player v delta)
+    (define (vol-prime player v delta)
       (define phi (get-field phi player))
       (define vol (get-field vol player))
       (define phis (squared phi))
@@ -70,8 +49,8 @@
                     (lower-bound f a tau)))
       (optimal-value f A B eps))
 
-    (define/private (update-rating player)
-      (define rivals (get-neighbors players player))
+    (define (update-rating player)
+      (define rivals (send scenario get-rivals player))
 
       ; Step 3
       (define v (V player rivals))
@@ -88,59 +67,18 @@
       (define miup (miu-prime player phip current-performance))
 
       ; Step 8
-      ; Finally, update everything
-      (send player update-r! miup)
-      (send player update-rd! phip)
-      (set-field! vol player volp)
-
-      ; Return player class with changed attributes
-      player)
+      ; Finally, return something new
+      (define updated-player (new player%
+                                  [name (get-field name player)]
+                                  [r (miu->r miup)]
+                                  [rd (phi->rd phip)]
+                                  [vol volp]))
+      updated-player)
 
     (define/public (run)
-      (for/list ([player (get-vertices players)])
+      (for/list ([player (send scenario get-players)])
         (update-rating player)))
 
     (super-new)))
-
-(define (g player)
-  (let ([phi (get-field phi player)])
-    (/ 1 (sqrt (+ 1 (* 3 (expt (/ phi pi) 2)))))))
-
-(define (squared x)
-  (* x x))
-
-;Check
-(define (E p1 p2)
-  (let ([miu1 (get-field miu p1)]
-        [miu2 (get-field miu p2)]
-        [g2 (g p2)])
-    (/ 1 (+ 1 (exp (* (- g2) (- miu1 miu2)))))))
-
-(define (phi-star phi vol-prime)
-  (sqrt (+ (squared phi) (squared vol-prime))))
-
-(define (phi-prime player vol-prime v)
-  (/ 1 (sqrt (+ (/ 1 (squared (phi-star (get-field phi player) vol-prime)) (/ 1 v))))))
-
-(define (miu-prime player phi-prime performance)
-  (+ (get-field miu player) (* (squared phi-prime) performance)))
-
-(define (lower-bound f a tau)
-  (define (loop k)
-    (if (< (f (- a (* k tau))) 0)
-        (loop (+ k 1))
-        (- a (* k tau))))
-  (loop 1))
-
-(define (optimal-value f A B eps)
-  (define (loop X Y fX fY)
-    (if (> (abs (- Y X)) eps)
-        (let* ([Z (+ X (/ (* (- X Y) fX) (- fY fX)))]
-               [fZ (f Z)])
-          (if (<= (* fZ fY) 0)
-              (loop Y Z fY fZ)
-              (loop X Z (/ fX 2) fZ)))
-        (exp (/ X 2))))
-  (loop A B (f A) (f B)))
 
 (provide system%)
